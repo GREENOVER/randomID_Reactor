@@ -1,11 +1,10 @@
 import Foundation
 import ReactorKit
+import Alamofire
 
 final class RandomIDReactor: Reactor {
-  var fetchData: RandomInfo?
-  
   enum Action {
-    case fetchData
+    case clickButton
   }
   
   enum Mutation {
@@ -23,16 +22,7 @@ final class RandomIDReactor: Reactor {
 extension RandomIDReactor {
   func mutate(action: Action) -> Observable<Mutation> {
     switch action {
-    case .fetchData:
-//      Single<Any>.create(subscribe: { single in
-//        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3), execute: {
-//          FetchRandomInfo().init()
-//        })
-//        return Disposables.create()
-//      }).asObservable()
-//      self.fetchData = FetchRandomInfo.init().sortData[0]
-//      return Observable.just(Mutation.refreshView(fetchData!))
-      
+    case .clickButton:
       return Observable.concat([
         getData()
       ])
@@ -54,10 +44,10 @@ extension RandomIDReactor {
 extension RandomIDReactor {
   func getData() -> Observable<Mutation> {
     return Observable<Mutation>.create{ [self] observer in
-      FetchRandomInfo.shared.fetch()
       let index = randomDataIndex()
-      observer.onNext(.refreshView(FetchRandomInfo.shared.sortData[index]))
-      observer.onCompleted()
+      FetchRandomInfo.shared.fetch(index, completion: { (data) in
+        observer.onNext(.refreshView(data))
+      })
       return Disposables.create()
     }
   }
@@ -65,5 +55,4 @@ extension RandomIDReactor {
   func randomDataIndex() -> Int {
     return Int.random(in: 0..<100)
   }
-  
 }

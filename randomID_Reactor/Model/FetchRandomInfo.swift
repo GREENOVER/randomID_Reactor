@@ -6,20 +6,18 @@ class FetchRandomInfo {
   
   private init() {}
   
-  let url = "https://jsonplaceholder.typicode.com/todos"
-  var listData = [RandomInfo]()
-  var sortData = [RandomInfo]()
+  let baseURL = "https://jsonplaceholder.typicode.com/todos/"
   
-  func fetch() {
-    AF.request(url, method: .get, encoding: JSONEncoding.default)
-      .responseJSON { [self] response in
+  func fetch(_ index: Int, completion: @escaping (_ data: RandomInfo) -> Void) {
+    let convertURL = baseURL+"\(index)"
+    AF.request(convertURL, method: .get, encoding: JSONEncoding.default)
+      .responseJSON { response in
         switch response.result {
         case .success(let value):
           do {
             let data = try JSONSerialization.data(withJSONObject: value, options: .prettyPrinted)
-            let list = try JSONDecoder().decode([RandomInfo].self, from: data)
-            self.listData.append(contentsOf: list)
-            self.sortData = listData.sorted { $0.id < $1.id }
+            let list = try JSONDecoder().decode(RandomInfo.self, from: data)
+            completion(list)
           } catch DecodingError.dataCorrupted(let context) {
             print("데이터가 손상되었거나 유효하지 않습니다.")
             print(context.codingPath, context.debugDescription, context.underlyingError ?? "" , separator: "\n")
