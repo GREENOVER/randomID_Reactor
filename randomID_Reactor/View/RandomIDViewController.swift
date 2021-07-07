@@ -4,10 +4,17 @@ import RxCocoa
 
 class RandomIDViewController: UIViewController, StoryboardView {
   var disposeBag = DisposeBag()
+  let reactor = RandomIDReactor()
   
   @IBOutlet weak var idLabel: UILabel!
   @IBOutlet weak var titleLabel: UILabel!
   @IBOutlet weak var changeButton: UIButton!
+  
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(true)
+    bind(reactor: reactor)
+    reactor.action.onNext(.viewDidAppear)
+  }
   
   func bind(reactor: RandomIDReactor) {
     self.changeButton.rx.tap

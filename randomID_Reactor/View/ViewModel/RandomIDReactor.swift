@@ -5,6 +5,7 @@ import Alamofire
 final class RandomIDReactor: Reactor {
   enum Action {
     case clickButton
+    case viewDidAppear
   }
   
   enum Mutation {
@@ -44,6 +45,23 @@ extension RandomIDReactor {
   func mutate(action: Action) -> Observable<Mutation> {
     switch action {
     case .clickButton:
+      return FetchRandomInfo.shared.rx.fetch()
+        .asObservable()
+        .materialize()
+        .map({ event -> Event<Result<RandomInfo, NSError>> in
+          switch event {
+          case .completed:
+            return .completed
+          case let .error(error):
+            return .next(Result.failure(error as NSError))
+          case let .next(randomInfo):
+            return .next(Result.success(randomInfo))
+          }
+        })
+        .dematerialize()
+        .map(Mutation.fetchResult)
+      
+    case .viewDidAppear:
       return FetchRandomInfo.shared.rx.fetch()
         .asObservable()
         .materialize()
