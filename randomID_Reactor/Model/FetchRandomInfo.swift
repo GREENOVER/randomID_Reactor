@@ -1,41 +1,67 @@
 import Foundation
 import Alamofire
+import RxSwift
 
-class FetchRandomInfo {
+class FetchRandomInfo: ReactiveCompatible {
   static var shared = FetchRandomInfo()
   
   private init() {}
   
   let baseURL = "https://jsonplaceholder.typicode.com/todos/"
   
-  func fetch(_ index: Int, completion: @escaping (_ data: RandomInfo) -> Void) {
-    let convertURL = baseURL+"\(index)"
+  func fetchData(completion: @escaping (_ result: Result<RandomInfo, NSError>) -> Void) {
+    let convertURL = baseURL+"\(randomDataIndex())"
     AF.request(convertURL, method: .get, encoding: JSONEncoding.default)
       .responseJSON { response in
         switch response.result {
         case .success(let value):
           do {
             let data = try JSONSerialization.data(withJSONObject: value, options: .prettyPrinted)
-            let list = try JSONDecoder().decode(RandomInfo.self, from: data)
-            completion(list)
-          } catch DecodingError.dataCorrupted(let context) {
-            print("데이터가 손상되었거나 유효하지 않습니다.")
-            print(context.codingPath, context.debugDescription, context.underlyingError ?? "" , separator: "\n")
-          } catch DecodingError.keyNotFound(let codingkey, let context) {
-            print("주어진 키를 찾을수 없습니다.")
-            print(codingkey.intValue ?? Optional(nil)! , codingkey.stringValue , context.codingPath, context.debugDescription, context.underlyingError ?? "" , separator: "\n")
-          } catch DecodingError.typeMismatch(let type, let context) {
-            print("주어진 타입과 일치하지 않습니다.")
-            print(type.self , context.codingPath, context.debugDescription, context.underlyingError ?? "" , separator: "\n")
-          } catch DecodingError.valueNotFound(let type, let context) {
-            print("예상하지 않은 null 값이 발견되었습니다.")
-            print(type.self , context.codingPath, context.debugDescription, context.underlyingError ?? "" , separator: "\n")
+            let randomInfo = try JSONDecoder().decode(RandomInfo.self, from: data)
+            completion(Result.success(randomInfo))
           } catch {
-            print("그외 에러가 발생했습니다.")
+            completion(Result.failure(decodingError(convertURL: convertURL, responseValue: value, underlying: error)))
           }
         case .failure(let error):
-          print(error.localizedDescription)
+          completion(Result.failure(networkError(convertURL: convertURL, underlying: error)))
         }
       }
   }
+  
+  fileprivate func randomDataIndex() -> Int {
+    return Int.random(in: 1...100)
+  }
+}
+
+extension Reactive where Base == FetchRandomInfo {
+  func fetch() -> Single<RandomInfo> {
+    return Single.create(subscribe: { single in
+      self.base.fetchData(completion: { randomInfo in
+        switch randomInfo {
+        case let .success(randomInfo):
+          single(.success(randomInfo))
+        case let .failure(error):
+          single(.failure(error))
+        }
+      })
+      return Disposables.create()
+    })
+  }
+}
+
+fileprivate func networkError(convertURL: String, underlying: Error) -> NSError {
+  return NSError(domain: "FetchRandomInfo", code: 1, userInfo: [
+    "identifier": "FetchRandomInfo.networkError",
+    "convertURL": convertURL,
+    NSUnderlyingErrorKey: underlying,
+  ])
+}
+
+fileprivate func decodingError(convertURL: String, responseValue: Any, underlying: Error) -> NSError {
+  return NSError(domain: "FetchRandomInfo", code: 2, userInfo: [
+    "identifer": "FetchRandomInfo.decodingError",
+    "convertURL": convertURL,
+    "responseValue": responseValue,
+    NSUnderlyingErrorKey: underlying,
+  ])
 }

@@ -8,12 +8,33 @@ final class RandomIDReactor: Reactor {
   }
   
   enum Mutation {
-    case refreshView(RandomInfo)
+    case fetchResult(Result<RandomInfo, NSError>)
   }
   
   struct State {
-    var displayIDText = "1"
-    var displayTitleText = "delectus aut autem"
+    var fetchResult: Result<RandomInfo, NSError>?
+    
+    var displayIDText: String? {
+      return fetchResult.flatMap({ fetchResult in
+        switch fetchResult {
+        case let .success(randomInfo):
+          return "\(randomInfo.id)"
+        default:
+          return nil
+        }
+      })
+    }
+    
+    var displayTitleText: String? {
+      return fetchResult.flatMap({ fetchResult in
+        switch fetchResult {
+        case let .success(randomInfo):
+          return "\(randomInfo.title)"
+        default:
+          return nil
+        }
+      })
+    }
   }
   
   let initialState: State = .init()
@@ -23,9 +44,21 @@ extension RandomIDReactor {
   func mutate(action: Action) -> Observable<Mutation> {
     switch action {
     case .clickButton:
-      return Observable.concat([
-        getData()
-      ])
+      return FetchRandomInfo.shared.rx.fetch()
+        .asObservable()
+        .materialize()
+        .map({ event -> Event<Result<RandomInfo, NSError>> in
+          switch event {
+          case .completed:
+            return .completed
+          case let .error(error):
+            return .next(Result.failure(error as NSError))
+          case let .next(randomInfo):
+            return .next(Result.success(randomInfo))
+          }
+        })
+        .dematerialize()
+        .map(Mutation.fetchResult)
     }
   }
   
@@ -33,26 +66,9 @@ extension RandomIDReactor {
     var state = state
     
     switch mutation {
-    case .refreshView(let randomInfo):
-      state.displayIDText = String(randomInfo.id)
-      state.displayTitleText = String(randomInfo.title)
+    case .fetchResult(let result):
+      state.fetchResult = result
     }
     return state
-  }
-}
-
-extension RandomIDReactor {
-  func getData() -> Observable<Mutation> {
-    return Observable<Mutation>.create{ [self] observer in
-      let index = randomDataIndex()
-      FetchRandomInfo.shared.fetch(index, completion: { (data) in
-        observer.onNext(.refreshView(data))
-      })
-      return Disposables.create()
-    }
-  }
-  
-  func randomDataIndex() -> Int {
-    return Int.random(in: 0..<100)
   }
 }
