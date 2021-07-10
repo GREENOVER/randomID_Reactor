@@ -1,6 +1,5 @@
 import Foundation
 import ReactorKit
-import Alamofire
 
 final class RandomIDReactor: Reactor {
   enum Action {
